@@ -16,11 +16,13 @@ type EndpointManager struct {
 	logger  *slog.Logger
 }
 
-func (manager *EndpointManager) Accept(w http.ResponseWriter, r *http.Request) (*internal.WsConn, error) {
+func (manager *EndpointManager) Accept(w http.ResponseWriter, r *http.Request) (*Session, error) {
 	conn, err := manager.upgrade.Upgrade(w, r, nil)
 	if err != nil {
 		manager.logger.Warn("accept error", "err", err)
 		return nil, err
 	}
-	return internal.NewWSClient(conn, manager.logger, time.Second*15), err
+	wsConn := internal.NewWSClient(conn, manager.logger, time.Second*15)
+	sess := NewSession(wsConn, manager.logger)
+	return sess, nil
 }

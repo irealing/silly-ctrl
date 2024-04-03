@@ -61,25 +61,33 @@ func Dial(ctx context.Context, url string, header http.Header, logger *slog.Logg
 func NewWSClient(conn *websocket.Conn, logger *slog.Logger, ttl time.Duration) *WsConn {
 	return &WsConn{conn: conn, logger: logger, TTL: ttl}
 }
-func (w *WsConn) Run(ctx context.Context, readers <-chan WsReader) <-chan WsReader {
-	r := make(chan WsReader, 10)
+func (w *WsConn) Start(ctx context.Context, readers <-chan WsReader) <-chan WsReader {
+	ret := make(chan WsReader, 10)
+	go func() {
+		if err := w.Run(ctx, readers, ret); err != nil {
+			w.logger.Warn("client Run error", "client", w.ID, "err", err)
+		}
+	}()
+	return ret
+}
+func (w *WsConn) Run(ctx context.Context, readers <-chan WsReader, ret chan<- WsReader) error {
 	ctx, cancel := context.WithCancel(ctx)
 	eg, ctx := errgroup.WithContext(ctx)
 	go func() {
-		defer close(r)
+		defer close(ret)
 		if err := eg.Wait(); err != nil {
 			w.logger.Warn("client loop error", "error", err)
 		}
 	}()
 	eg.Go(func() error {
 		defer cancel()
-		return w.readLoop(ctx, r)
+		return w.readLoop(ctx, ret)
 	})
 	eg.Go(func() error {
 		defer cancel()
 		return w.writeLoop(ctx, readers)
 	})
-	return r
+	return eg.Wait()
 }
 func (w *WsConn) readLoop(ctx context.Context, writers chan<- WsReader) error {
 	for {

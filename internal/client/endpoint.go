@@ -29,7 +29,7 @@ func (e *Endpoint) Run(ctx context.Context) error {
 }
 func (e *Endpoint) runLoop(ctx context.Context, client *internal.WsConn) error {
 	writers := make(chan internal.WsReader, 100)
-	readers := client.Run(ctx, writers)
+	readers := client.Start(ctx, writers)
 	ticker := time.NewTicker(client.TTL)
 	defer ticker.Stop()
 	for {
