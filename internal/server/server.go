@@ -26,3 +26,22 @@ func (manager *EndpointManager) Accept(w http.ResponseWriter, r *http.Request) (
 	sess := NewSession(wsConn, manager.logger)
 	return sess, nil
 }
+func (manager *EndpointManager) runSessionLoop(session *Session) {
+	//	TODO: sessionLoop
+}
+func (m *EndpointManager) putSession(session *Session) {
+	m.rw.Lock()
+	defer m.rw.Unlock()
+	m.mapping[session.conn.ID] = session
+}
+func (m *EndpointManager) getSession(id uint64) (*Session, bool) {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+	sess, ok := m.mapping[id]
+	return sess, ok
+}
+func (m *EndpointManager) delSession(id uint64) {
+	m.rw.Lock()
+	defer m.rw.RUnlock()
+	delete(m.mapping, id)
+}
