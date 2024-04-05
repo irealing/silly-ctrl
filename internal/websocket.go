@@ -58,7 +58,7 @@ func Dial(ctx context.Context, url string, header http.Header, logger *slog.Logg
 	return &WsConn{ID: atomic.AddUint64(&globalClientID, 1), conn: conn, logger: logger, TTL: ttl}, nil
 }
 
-func NewWSClient(conn *websocket.Conn, logger *slog.Logger, ttl time.Duration) *WsConn {
+func NewWSConn(conn *websocket.Conn, logger *slog.Logger, ttl time.Duration) *WsConn {
 	return &WsConn{conn: conn, logger: logger, TTL: ttl}
 }
 func (w *WsConn) Start(ctx context.Context, readers <-chan WsReader) <-chan WsReader {
@@ -73,10 +73,11 @@ func (w *WsConn) Start(ctx context.Context, readers <-chan WsReader) <-chan WsRe
 func (w *WsConn) Run(ctx context.Context, readers <-chan WsReader, ret chan<- WsReader) error {
 	ctx, cancel := context.WithCancel(ctx)
 	eg, ctx := errgroup.WithContext(ctx)
-	go func() {
-		defer close(ret)
-		if err := eg.Wait(); err != nil {
-			w.logger.Warn("client loop error", "error", err)
+	defer close(ret)
+	defer func() {
+		w.logger.Debug("close connection", "id", w.ID)
+		if err := w.conn.Close(); err != nil {
+			w.logger.Warn("close connection error", "id", w.ID, "err", err)
 		}
 	}()
 	eg.Go(func() error {
@@ -93,12 +94,12 @@ func (w *WsConn) readLoop(ctx context.Context, writers chan<- WsReader) error {
 	for {
 		select {
 		case <-ctx.Done():
-			w.logger.Warn("client context done")
+			w.logger.Warn("readLoop client context done")
 			return nil
 		default:
 			err := w.conn.SetReadDeadline(time.Now().Add(w.TTL))
 			if err != nil {
-				return fmt.Errorf("read timeout")
+				return fmt.Errorf("set read deadline error %w", err)
 			}
 			messageType, reader, err := w.conn.NextReader()
 			if err != nil {
@@ -109,12 +110,22 @@ func (w *WsConn) readLoop(ctx context.Context, writers chan<- WsReader) error {
 	}
 }
 func (w *WsConn) writeLoop(ctx context.Context, readers <-chan WsReader) error {
+	ticker := time.NewTicker(w.TTL / 2)
+	defer ticker.Stop()
+	var (
+		r  WsReader
+		ok bool
+	)
 	for {
 		select {
 		case <-ctx.Done():
-			w.logger.Warn("client context done")
+			w.logger.Warn("writeLoop client context done")
 			return nil
-		case r, ok := <-readers:
+		case <-ticker.C:
+			if err := w.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return fmt.Errorf("conn write ping message error %w", err)
+			}
+		case r, ok = <-readers:
 			if !ok {
 				w.logger.Warn("readers closed")
 				return nil

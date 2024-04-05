@@ -10,5 +10,5 @@ import (
 )
 
 func createWorker(_ context.Context) (internal.Worker, error) {
-	return server.NewBaseWorker(slog.Default(), "127.0.0.1:8000"), nil
+	return server.NewBaseWorker(slog.Default(), "127.0.0.1:8000", server.NewCtrlWorker), nil
 }

@@ -15,7 +15,7 @@ type Worker interface {
 	internal.Worker
 	Mount(r gin.IRouter)
 }
-type WorkerCreator func(ctx context.Context) (Worker, error)
+type WorkerCreator func(ctx context.Context, logger *slog.Logger) (Worker, error)
 
 type BaseWorker struct {
 	creators []WorkerCreator
@@ -34,7 +34,7 @@ func (worker *BaseWorker) Tag() string {
 func (worker *BaseWorker) Run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 	workers, err := sillyKits.Map(worker.creators, func(t WorkerCreator) (Worker, error) {
-		return t(ctx)
+		return t(ctx, worker.logger)
 	})
 	if err != nil {
 		return err

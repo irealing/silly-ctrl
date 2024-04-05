@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var RemoteAddr = "ws://127.0.0.1:65530/wsx"
+var RemoteAddr = "ws://127.0.0.1:8000/ctrl/wsx"
 
 type Endpoint struct {
 	services internal.ServiceMapping
