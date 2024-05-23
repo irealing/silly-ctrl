@@ -12,6 +12,7 @@ const (
 	BadParamError
 	SessionAlreadyExists
 	ApplicationOver
+	UnknownSessionError
 	UnknownError
 )
 

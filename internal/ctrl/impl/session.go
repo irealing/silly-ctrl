@@ -26,6 +26,10 @@ type session struct {
 	cfg           *ctrl.Config
 }
 
+func (sess *session) IsRemote() bool {
+	return sess.isRemote
+}
+
 func (sess *session) ID() string {
 	return sess.app.AccessKey
 }
@@ -155,10 +159,12 @@ func (sess *session) start(ctx context.Context) error {
 }
 func (sess *session) handleCommand(ctx context.Context, cmd *packet.Command, stream quic.Stream) (err error) {
 	defer func() {
-		if err = stream.Close(); err != nil {
+		sess.logger.Debug("handle command over,close stream", "type", cmd.Type, "stream", stream.StreamID())
+		if err := stream.Close(); err != nil {
 			sess.logger.Error("close stream error", "err", err)
 		}
 	}()
+	sess.logger.Debug("receive command", "type", cmd.Type, "session", sess.app.AccessKey)
 	err = sess.handleMapping.Invoke(ctx, cmd, sess, sess.manager, stream)
 	return err
 }
@@ -170,7 +176,7 @@ func (sess *session) Exec(cmd *packet.Command, callback ctrl.SessionExecCallback
 	defer func() {
 		err = stream.Close()
 		if err != nil {
-			err = fmt.Errorf("close stream error %s %w", sess.ID(), err)
+			sess.logger.Warn("close stream error", "err", err, "sess", sess.ID())
 		}
 	}()
 	_, err = protodelim.MarshalTo(stream, cmd)

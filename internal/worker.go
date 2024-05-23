@@ -7,20 +7,20 @@ import (
 	"log/slog"
 )
 
-type simpleWorker struct {
+type baseWorker struct {
 	logger   *slog.Logger
 	name     string
 	creators []WorkerCreator
 }
 
 func NewWorker(logger *slog.Logger, name string, creators ...WorkerCreator) Worker {
-	return &simpleWorker{logger: logger, name: name, creators: creators}
+	return &baseWorker{logger: logger, name: name, creators: creators}
 }
-func (worker *simpleWorker) Tag() string {
+func (worker *baseWorker) Tag() string {
 	return worker.name
 }
 
-func (worker *simpleWorker) Run(ctx context.Context) error {
+func (worker *baseWorker) Run(ctx context.Context) error {
 	workers, err := sillyKits.Map(worker.creators, func(creator WorkerCreator) (Worker, error) {
 		return creator(ctx)
 	})
@@ -31,6 +31,24 @@ func (worker *simpleWorker) Run(ctx context.Context) error {
 	return RunWorkers(ctx, workers...)
 }
 
+type simpleWorker struct {
+	tag string
+	fn  func(ctx context.Context) error
+}
+
+func SimpleWorker(tag string, fn func(ctx context.Context) error) Worker {
+	return &simpleWorker{tag: tag, fn: fn}
+}
+
+func (worker *simpleWorker) Run(ctx context.Context) error {
+	if worker.fn != nil {
+		return worker.fn(ctx)
+	}
+	return nil
+}
+func (worker *simpleWorker) Tag() string {
+	return worker.tag
+}
 func RunWorkers[T Worker](ctx context.Context, workers ...T) error {
 	eg, ctx := errgroup.WithContext(ctx)
 	for _, worker := range workers {

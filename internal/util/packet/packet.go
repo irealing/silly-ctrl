@@ -61,3 +61,12 @@ func (x *Command) GetParamWithDefault(key, val string) string {
 	}
 	return r
 }
+
+// ForwardCommand FORWARD <REMOTE> <ADDRESS>
+// like FORWARD xxx 127.0.0.1:8000
+func ForwardCommand(remote, addr string) *Command {
+	return &Command{
+		Type: CommandType_FORWARD,
+		Args: []string{remote, addr},
+	}
+}

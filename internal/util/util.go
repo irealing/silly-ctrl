@@ -21,6 +21,8 @@ func RetWithError(e error) *packet.Ret {
 	ok := errors.As(e, &errNo)
 	if !ok {
 		r.ErrNo = UnknownError.Code()
+	} else {
+		r.ErrNo = errNo.Code()
 	}
 	return r
 }

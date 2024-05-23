@@ -14,6 +14,7 @@ type SessionExecCallback func(ret *packet.Ret, sess Session, stream quic.Stream)
 type Session interface {
 	ID() string
 	RemoteAddr() net.Addr
+	IsRemote() bool // IsRemote 是否本地发起的连接
 	App() *util.App
 	Info() *packet.Heartbeat
 	Exec(cmd *packet.Command, callback SessionExecCallback) error
@@ -31,17 +32,15 @@ type Service interface {
 }
 type ServiceMapping map[packet.CommandType]Service
 
-func (mapping ServiceMapping) Invoke(ctx context.Context, _ *packet.Command, session Session, manager SessionManager, stream quic.Stream) error {
-	cmd := &packet.Command{}
-	err := protodelim.UnmarshalFrom(packet.NewProtoReader(stream), cmd)
-	if err != nil {
-		return err
-	}
+func (mapping ServiceMapping) Invoke(ctx context.Context, cmd *packet.Command, session Session, manager SessionManager, stream quic.Stream) error {
+	var err error
 	if service, ok := mapping[cmd.Type]; ok {
-		return service.Invoke(ctx, cmd, session, manager, stream)
+		err = service.Invoke(ctx, cmd, session, manager, stream)
 	} else {
-		return util.UnknownCommandError
+		err = util.UnknownCommandError
 	}
+	_, _ = protodelim.MarshalTo(stream, util.RetWithError(err))
+	return err
 }
 
 func (mapping ServiceMapping) Type() packet.CommandType {
