@@ -1,0 +1,45 @@
+syntax = "proto3";
+package packet;
+option go_package = "../packet";
+enum ErrCode{
+  NoError = 0;
+  AuthError = 1;
+  UnknownApp = 2;
+  SignatureTimeout = 3;
+  HandshakeFailed = 4;
+  UnknownCommand = 5;
+  UnknownSession = 6;
+}
+message Heartbeat {
+  string hostname = 1;
+  string username = 2;
+  string osName = 3;
+  int64 localtime = 4;
+}
+
+message Handshake {
+  string accessKey = 1;
+  string sign = 2;
+  uint64 t = 3;
+}
+
+enum CommandType{
+  EMPTY = 0;
+  ECHO = 1;
+  EXEC = 2;
+  FORWARD = 3;
+}
+message Ret {
+  uint64 errNo = 1;
+  string msg = 2;
+}
+message CommandParam{
+  string key = 1;
+  string value = 2;
+}
+
+message Command {
+  CommandType type = 1;
+  repeated string args = 2;
+  repeated CommandParam params = 3;
+}

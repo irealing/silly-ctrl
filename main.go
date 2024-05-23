@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,13 +10,7 @@ import (
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGHUP, os.Interrupt)
-	worker, err := createWorker(ctx)
-	if err != nil {
-		slog.Error("create worker failed", "error", err)
-		cancel()
-		return
-	}
-	if err := worker.Run(ctx); err != nil {
-		slog.Error("run worker failed", "worker", worker.Tag(), "error", err)
-	}
+	defer cancel()
+	net.ResolveUDPAddr("udp", "127.0.0.1:65531")
+	<-ctx.Done()
 }
