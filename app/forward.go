@@ -83,7 +83,15 @@ func (worker forwardWorker) forwardConn(ctx context.Context, remote *config.Forw
 	err := sess.Exec(
 		packet.ForwardCommand(remote.App, remote.RemoteAddress),
 		func(ret *packet.Ret, sess ctrl.Session, stream quic.Stream) error {
-			return util.Forward(ctx, conn, stream)
+			eg, ctx := errgroup.WithContext(ctx)
+			eg.Go(func() error {
+				defer stream.CancelRead(quic.StreamErrorCode(util.NoError))
+				return util.CopyWithContext(ctx, conn, stream)
+			})
+			eg.Go(func() error {
+				return util.CopyWithContext(ctx, stream, conn)
+			})
+			return eg.Wait()
 		},
 	)
 	if err != nil {
