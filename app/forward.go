@@ -31,16 +31,15 @@ func (worker forwardWorker) listen(ctx context.Context, listener net.Listener) <
 	go func() {
 		defer close(c)
 		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
 			conn, err := listener.Accept()
 			if err != nil {
 				return
 			}
-			c <- conn
+			select {
+			case <-ctx.Done():
+				return
+			case c <- conn:
+			}
 		}
 	}()
 	return c
@@ -51,12 +50,15 @@ func (worker forwardWorker) forward(ctx context.Context, remote *config.Forward)
 		return err
 	}
 	worker.cfg.Logger().Info("forward via local address", "address", remote.LocalAddress)
-	defer func() {
-		_ = listener.Close()
-	}()
 	cs := worker.listen(ctx, listener)
 	wg := sync.WaitGroup{}
 	defer wg.Wait()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		_ = listener.Close()
+	}()
 	for c := range cs {
 		conn := c
 		wg.Add(1)

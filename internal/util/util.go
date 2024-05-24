@@ -29,23 +29,41 @@ func RetWithError(e error) *packet.Ret {
 
 func CopyWithContext(ctx context.Context, src io.Reader, dst io.Writer) error {
 	buf := make([]byte, 1024*32)
+	errDone := make(chan int, 1)
+	var (
+		err    error
+		nr     int
+		isOpen bool
+	)
+	go func() {
+		defer close(errDone)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				nr, err = src.Read(buf)
+				if err != nil {
+					return
+				}
+				errDone <- nr
+			}
+		}
+	}()
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
-		}
-		nr, err := src.Read(buf)
-		if nr > 0 {
-			if _, ew := dst.Write(buf[:nr]); ew != nil {
-				return ew
+		case nr, isOpen = <-errDone:
+			if nr > 0 {
+				_, err = dst.Write(buf[:nr])
+				if err != nil {
+					return err
+				}
 			}
-		}
-		if err != nil {
-			if err == io.EOF {
-				return nil
+			if !isOpen || err != nil {
+				return err
 			}
-			return err
 		}
 	}
 }

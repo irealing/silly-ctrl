@@ -165,6 +165,7 @@ func (sess *session) handleCommand(ctx context.Context, cmd *packet.Command, str
 		}
 	}()
 	sess.logger.Debug("receive command", "type", cmd.Type, "session", sess.app.AccessKey)
+	defer sess.logger.Debug("command invoke done", "type", cmd.Type, "session", sess.app.AccessKey, "err", err)
 	err = sess.handleMapping.Invoke(ctx, cmd, sess, sess.manager, stream)
 	return err
 }
@@ -174,6 +175,8 @@ func (sess *session) Exec(cmd *packet.Command, callback ctrl.SessionExecCallback
 		return fmt.Errorf("open stream error session %s err %w", sess.ID(), err)
 	}
 	defer func() {
+		stream.CancelRead(quic.StreamErrorCode(util.NoError))
+		sess.logger.Debug("close stream", "stream", stream.StreamID(), "cmd", cmd.Type)
 		err = stream.Close()
 		if err != nil {
 			sess.logger.Warn("close stream error", "err", err, "sess", sess.ID())
