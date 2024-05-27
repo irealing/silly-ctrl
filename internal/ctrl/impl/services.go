@@ -10,6 +10,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"net"
+	"os/exec"
+	"strings"
 )
 
 type forwardService struct {
@@ -83,4 +85,26 @@ func (proxy proxyService) Invoke(ctx context.Context, command *packet.Command, _
 		return util.CopyWithContext(ctx, conn, stream)
 	})
 	return eg.Wait()
+}
+
+type execService struct {
+}
+
+func (execService) Type() packet.CommandType {
+	return packet.CommandType_EXEC
+}
+
+func (execService) Invoke(ctx context.Context, command *packet.Command, _ ctrl.Session, _ ctrl.SessionManager, stream quic.Stream) error {
+	if len(command.Args) < 1 {
+		return util.BadParamError
+	}
+	if _, err := protodelim.MarshalTo(stream, util.RetWithError(util.NoError)); err != nil {
+		return err
+	}
+	cmd := exec.CommandContext(ctx, command.Args[0], command.Args[1:]...)
+	cmd.Path = command.GetParamWithDefault("dir", ".")
+	cmd.Env = strings.Split(command.GetParamWithDefault("env", ""), ";")
+	cmd.Stdout = stream
+	cmd.Stderr = stream
+	return cmd.Run()
 }
