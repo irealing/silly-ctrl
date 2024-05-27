@@ -108,3 +108,14 @@ func (execService) Invoke(ctx context.Context, command *packet.Command, _ ctrl.S
 	cmd.Stderr = stream
 	return cmd.Run()
 }
+
+type emptyService struct {
+}
+
+func (emptyService) Type() packet.CommandType {
+	return packet.CommandType_EMPTY
+}
+
+func (emptyService) Invoke(_ context.Context, _ *packet.Command, _ ctrl.Session, _ ctrl.SessionManager, _ quic.Stream) error {
+	return util.NoError
+}
