@@ -27,7 +27,8 @@ enum CommandType{
   EMPTY = 0;
   ECHO = 1;
   EXEC = 2;
-  FORWARD = 3;
+  PROXY = 3;
+  FORWARD = 4;
 }
 message Ret {
   uint64 errNo = 1;

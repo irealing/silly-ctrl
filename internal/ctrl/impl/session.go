@@ -72,7 +72,8 @@ func (sess *session) sendHeartbeat(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
+	go func() {
+		<-ctx.Done()
 		if err = stream.Close(); err != nil {
 			sess.logger.Warn("close send heartbeat stream error", "err", err)
 		}
@@ -108,7 +109,8 @@ func (sess *session) receiveHeartbeat(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
+	go func() {
+		<-ctx.Done()
 		stream.CancelRead(quic.StreamErrorCode(util.UnknownError))
 	}()
 	ticker := time.NewTicker(sess.cfg.HeartbeatInterval)

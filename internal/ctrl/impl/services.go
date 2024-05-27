@@ -18,22 +18,48 @@ func (forward forwardService) Type() packet.CommandType {
 	return packet.CommandType_FORWARD
 }
 
-func (forward forwardService) Invoke(ctx context.Context, command *packet.Command, _ ctrl.Session, manager ctrl.SessionManager, stream quic.Stream) error {
+func (forward forwardService) Invoke(ctx context.Context, command *packet.Command, sess ctrl.Session, manager ctrl.SessionManager, stream quic.Stream) error {
 	if len(command.Args) < 2 {
 		return util.BadParamError
 	}
 	remote, address := command.Args[0], command.Args[1]
+
 	dest, ok := manager.Get(remote)
 	if !ok {
 		return util.UnknownSessionError
 	}
-	if !dest.IsRemote() {
-		return forward.forwardClient(ctx, dest, stream, command)
+	newCmd := &packet.Command{
+		Type:   packet.CommandType_PROXY,
+		Args:   []string{address},
+		Params: command.Params,
 	}
-	return forward.forwardLocal(ctx, stream, command, address)
+	if sess.ID() == remote {
+		return proxyService{}.Invoke(ctx, newCmd, sess, manager, stream)
+	}
+	return dest.Exec(ctx, newCmd, func(ctx context.Context, _ *packet.Ret, sess ctrl.Session, remoteStream quic.Stream) error {
+		if _, err := protodelim.MarshalTo(stream, util.RetWithError(util.NoError)); err != nil {
+			return err
+		}
+		if err := util.Forward(ctx, remoteStream, stream); err != nil {
+			return err
+		}
+		return nil
+	})
 }
-func (forward forwardService) forwardLocal(ctx context.Context, stream quic.Stream, cmd *packet.Command, address string) error {
-	network := cmd.GetParamWithDefault("network", "tcp")
+
+type proxyService struct {
+}
+
+func (proxy proxyService) Type() packet.CommandType {
+	return packet.CommandType_PROXY
+}
+
+func (proxy proxyService) Invoke(ctx context.Context, command *packet.Command, _ ctrl.Session, _ ctrl.SessionManager, stream quic.Stream) error {
+	if len(command.Args) < 1 {
+		return util.BadParamError
+	}
+	address := command.Args[0]
+	network := command.GetParamWithDefault("network", "tcp")
 	conn, err := net.Dial(network, address)
 	if err != nil {
 		return fmt.Errorf("dial %s:%s", network, address)
@@ -46,16 +72,4 @@ func (forward forwardService) forwardLocal(ctx context.Context, stream quic.Stre
 		return fmt.Errorf("write ret error %s", err)
 	}
 	return util.Forward(ctx, conn, stream)
-}
-
-func (forward forwardService) forwardClient(ctx context.Context, dest ctrl.Session, stream quic.Stream, cmd *packet.Command) error {
-	return dest.Exec(ctx, cmd, func(ctx context.Context, _ *packet.Ret, sess ctrl.Session, remoteStream quic.Stream) error {
-		if _, err := protodelim.MarshalTo(stream, util.RetWithError(util.NoError)); err != nil {
-			return err
-		}
-		if err := util.Forward(ctx, remoteStream, stream); err != nil {
-			return err
-		}
-		return nil
-	})
 }
