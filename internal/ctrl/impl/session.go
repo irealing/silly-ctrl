@@ -113,7 +113,7 @@ func (sess *session) receiveHeartbeat(ctx context.Context) error {
 	}()
 	ticker := time.NewTicker(sess.cfg.HeartbeatInterval)
 	for {
-		if err = stream.SetReadDeadline(time.Now().Add((sess.cfg.MaxHeartbeatInterval - sess.cfg.HeartbeatInterval) * time.Second)); err != nil {
+		if err = stream.SetReadDeadline(time.Now().Add(time.Second * sess.cfg.MaxHeartbeatInterval)); err != nil {
 			sess.logger.Error("set read deadline error", "err", err)
 			return err
 		}
