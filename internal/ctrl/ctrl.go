@@ -10,14 +10,14 @@ import (
 	"net"
 )
 
-type SessionExecCallback func(ret *packet.Ret, sess Session, stream quic.Stream) error
+type SessionExecCallback func(ctx context.Context, ret *packet.Ret, sess Session, stream quic.Stream) error
 type Session interface {
 	ID() string
 	RemoteAddr() net.Addr
 	IsRemote() bool // IsRemote 是否本地发起的连接
 	App() *util.App
 	Info() *packet.Heartbeat
-	Exec(cmd *packet.Command, callback SessionExecCallback) error
+	Exec(ctx context.Context, cmd *packet.Command, callback SessionExecCallback) error
 }
 
 type SessionManager interface {

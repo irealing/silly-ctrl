@@ -80,9 +80,9 @@ func (worker forwardWorker) forwardConn(ctx context.Context, remote *config.Forw
 		worker.cfg.Logger().Error("app offline", "app", remote.App)
 		return
 	}
-	err := sess.Exec(
+	err := sess.Exec(ctx,
 		packet.ForwardCommand(remote.App, remote.RemoteAddress),
-		func(ret *packet.Ret, sess ctrl.Session, stream quic.Stream) error {
+		func(ctx context.Context, ret *packet.Ret, sess ctrl.Session, stream quic.Stream) error {
 			eg, ctx := errgroup.WithContext(ctx)
 			eg.Go(func() error {
 				defer stream.CancelRead(quic.StreamErrorCode(util.NoError))

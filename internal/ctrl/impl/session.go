@@ -80,7 +80,6 @@ func (sess *session) sendHeartbeat(ctx context.Context) error {
 	maxHeartbeatInterval := time.Second * sess.cfg.MaxHeartbeatInterval
 	ticker := time.NewTicker(time.Second * sess.cfg.HeartbeatInterval)
 	defer ticker.Stop()
-
 	for {
 		sess.logger.Debug("write heartbeat message")
 		if err := stream.SetWriteDeadline(time.Now().Add(maxHeartbeatInterval)); err != nil {
@@ -112,23 +111,22 @@ func (sess *session) receiveHeartbeat(ctx context.Context) error {
 	defer func() {
 		stream.CancelRead(quic.StreamErrorCode(util.UnknownError))
 	}()
+	ticker := time.NewTicker(sess.cfg.HeartbeatInterval)
 	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-		deadline := time.Now().Add(time.Second * sess.cfg.MaxHeartbeatInterval)
-		if err = stream.SetReadDeadline(deadline); err != nil {
+		if err = stream.SetReadDeadline(time.Now().Add((sess.cfg.MaxHeartbeatInterval - sess.cfg.HeartbeatInterval) * time.Second)); err != nil {
 			sess.logger.Error("set read deadline error", "err", err)
 			return err
 		}
-		sess.logger.Debug("set deadline", "deadline", deadline)
 		if err = protodelim.UnmarshalFrom(packet.NewProtoReader(stream), &sess.heartbeat); err != nil {
 			sess.logger.Error("receive heartbeat error", "err", err)
 			return err
 		} else {
 			sess.logger.Debug("receive heartbeat", "info", &sess.heartbeat)
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
 		}
 	}
 }
@@ -169,7 +167,7 @@ func (sess *session) handleCommand(ctx context.Context, cmd *packet.Command, str
 	err = sess.handleMapping.Invoke(ctx, cmd, sess, sess.manager, stream)
 	return err
 }
-func (sess *session) Exec(cmd *packet.Command, callback ctrl.SessionExecCallback) error {
+func (sess *session) Exec(ctx context.Context, cmd *packet.Command, callback ctrl.SessionExecCallback) error {
 	stream, err := sess.conn.OpenStream()
 	if err != nil {
 		return fmt.Errorf("open stream error session %s err %w", sess.ID(), err)
@@ -196,5 +194,5 @@ func (sess *session) Exec(cmd *packet.Command, callback ctrl.SessionExecCallback
 	if callback == nil {
 		return nil
 	}
-	return callback(&ret, sess, stream)
+	return callback(ctx, &ret, sess, stream)
 }

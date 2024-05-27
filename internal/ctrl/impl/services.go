@@ -49,7 +49,7 @@ func (forward forwardService) forwardLocal(ctx context.Context, stream quic.Stre
 }
 
 func (forward forwardService) forwardClient(ctx context.Context, dest ctrl.Session, stream quic.Stream, cmd *packet.Command) error {
-	return dest.Exec(cmd, func(_ *packet.Ret, sess ctrl.Session, remoteStream quic.Stream) error {
+	return dest.Exec(ctx, cmd, func(ctx context.Context, _ *packet.Ret, sess ctrl.Session, remoteStream quic.Stream) error {
 		if _, err := protodelim.MarshalTo(stream, util.RetWithError(util.NoError)); err != nil {
 			return err
 		}
