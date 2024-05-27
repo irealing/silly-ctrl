@@ -7,6 +7,7 @@ import (
 	"github.com/irealing/silly-ctrl/internal/util"
 	"github.com/irealing/silly-ctrl/internal/util/packet"
 	"github.com/quic-go/quic-go"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"net"
 )
@@ -64,12 +65,22 @@ func (proxy proxyService) Invoke(ctx context.Context, command *packet.Command, _
 	if err != nil {
 		return fmt.Errorf("dial %s:%s", network, address)
 	}
-	defer func() {
-		err = conn.Close()
-	}()
 	_, err = protodelim.MarshalTo(stream, util.RetWithError(util.NoError))
 	if err != nil {
 		return fmt.Errorf("write ret error %s", err)
 	}
-	return util.Forward(ctx, conn, stream)
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		<-ctx.Done()
+		_ = conn.Close()
+		stream.CancelRead(quic.StreamErrorCode(util.NoError))
+		return stream.Close()
+	})
+	eg.Go(func() error {
+		return util.CopyWithContext(ctx, stream, conn)
+	})
+	eg.Go(func() error {
+		return util.CopyWithContext(ctx, conn, stream)
+	})
+	return eg.Wait()
 }

@@ -28,36 +28,19 @@ func RetWithError(e error) *packet.Ret {
 }
 
 func CopyWithContext(ctx context.Context, src io.Reader, dst io.Writer) error {
-	errDone := make(chan []byte, 1)
-	var err error
-	go func() {
-		buf := make([]byte, 1024*16)
-		defer close(errDone)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				l, err := src.Read(buf)
-				if err != nil {
-					return
-				}
-				if l < 1 {
-					continue
-				}
-				tmp := make([]byte, l)
-				copy(tmp, buf[:l])
-				errDone <- tmp
-			}
-		}
-	}()
+	buf := make([]byte, 1024*16)
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case data, isOpen := <-errDone:
-			_, err = dst.Write(data)
-			if !isOpen || err != nil {
+		default:
+			l, err := src.Read(buf)
+			if l > 0 {
+				if _, we := dst.Write(buf[:l]); err != nil {
+					return we
+				}
+			}
+			if err != nil {
 				return err
 			}
 		}

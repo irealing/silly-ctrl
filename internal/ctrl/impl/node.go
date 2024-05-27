@@ -135,7 +135,9 @@ func (server *ctrlNode) handshake(ctx context.Context, conn quic.Connection) (*u
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func() {
+	go func() {
+		<-ctx.Done()
+		authStream.CancelRead(quic.StreamErrorCode(util.NoError))
 		if err := authStream.Close(); err != nil {
 			server.logger.Error("close auth stream error", "err", err)
 		}
