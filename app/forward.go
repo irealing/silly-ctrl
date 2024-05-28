@@ -20,8 +20,9 @@ type forwardWorker struct {
 func (worker forwardWorker) Run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 	for _, fc := range worker.cfg.Forward {
+		cfg := fc
 		eg.Go(func() error {
-			return worker.forward(ctx, &fc)
+			return worker.forward(ctx, &cfg)
 		})
 	}
 	return eg.Wait()
