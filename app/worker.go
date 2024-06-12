@@ -2,21 +2,20 @@ package main
 
 import (
 	"context"
+	"github.com/irealing/silly-ctrl"
 	"github.com/irealing/silly-ctrl/app/config"
-	"github.com/irealing/silly-ctrl/internal"
-	"github.com/irealing/silly-ctrl/internal/ctrl"
 	"golang.org/x/sync/errgroup"
 )
 
-func makeListenWorker(node ctrl.Node, cfg *config.Config) (internal.Worker, error) {
-	return internal.SimpleWorker("listen", func(ctx context.Context) error {
+func makeListenWorker(node silly_ctrl.Node, cfg *config.Config) (silly_ctrl.Worker, error) {
+	return silly_ctrl.SimpleWorker("listen", func(ctx context.Context) error {
 		return node.Run(ctx, cfg.TLSConfig())
 	}), nil
 }
 
 type remoteWorker struct {
 	cfg  *config.Config
-	node ctrl.Node
+	node silly_ctrl.Node
 }
 
 func (worker *remoteWorker) Tag() string {

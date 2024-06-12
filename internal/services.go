@@ -1,11 +1,10 @@
-package impl
+package internal
 
 import (
 	"context"
 	"fmt"
-	"github.com/irealing/silly-ctrl/internal/ctrl"
-	"github.com/irealing/silly-ctrl/internal/util"
-	"github.com/irealing/silly-ctrl/internal/util/packet"
+	"github.com/irealing/silly-ctrl"
+	"github.com/irealing/silly-ctrl/packet"
 	"github.com/quic-go/quic-go"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/encoding/protodelim"
@@ -21,15 +20,15 @@ func (forward forwardService) Type() packet.CommandType {
 	return packet.CommandType_FORWARD
 }
 
-func (forward forwardService) Invoke(ctx context.Context, command *packet.Command, sess ctrl.Session, manager ctrl.SessionManager, stream quic.Stream) error {
+func (forward forwardService) Invoke(ctx context.Context, command *packet.Command, sess silly_ctrl.Session, manager silly_ctrl.SessionManager, stream quic.Stream) error {
 	if len(command.Args) < 2 {
-		return util.BadParamError
+		return silly_ctrl.BadParamError
 	}
 	remote, address := command.Args[0], command.Args[1]
 
 	dest, ok := manager.Get(remote)
 	if !ok {
-		return util.UnknownSessionError
+		return silly_ctrl.UnknownSessionError
 	}
 	newCmd := &packet.Command{
 		Type:   packet.CommandType_PROXY,
@@ -39,11 +38,11 @@ func (forward forwardService) Invoke(ctx context.Context, command *packet.Comman
 	if sess.ID() == remote {
 		return proxyService{}.Invoke(ctx, newCmd, sess, manager, stream)
 	}
-	return dest.Exec(ctx, newCmd, func(ctx context.Context, _ *packet.Ret, sess ctrl.Session, remoteStream quic.Stream) error {
-		if _, err := protodelim.MarshalTo(stream, util.RetWithError(util.NoError)); err != nil {
+	return dest.Exec(ctx, newCmd, func(ctx context.Context, _ *packet.Ret, sess silly_ctrl.Session, remoteStream quic.Stream) error {
+		if _, err := protodelim.MarshalTo(stream, silly_ctrl.RetWithError(silly_ctrl.NoError)); err != nil {
 			return err
 		}
-		if err := util.Forward(ctx, remoteStream, stream); err != nil {
+		if err := silly_ctrl.Forward(ctx, remoteStream, stream); err != nil {
 			return err
 		}
 		return nil
@@ -57,9 +56,9 @@ func (proxy proxyService) Type() packet.CommandType {
 	return packet.CommandType_PROXY
 }
 
-func (proxy proxyService) Invoke(ctx context.Context, command *packet.Command, _ ctrl.Session, _ ctrl.SessionManager, stream quic.Stream) error {
+func (proxy proxyService) Invoke(ctx context.Context, command *packet.Command, _ silly_ctrl.Session, _ silly_ctrl.SessionManager, stream quic.Stream) error {
 	if len(command.Args) < 1 {
-		return util.BadParamError
+		return silly_ctrl.BadParamError
 	}
 	address := command.Args[0]
 	network := command.GetParamWithDefault("network", "tcp")
@@ -67,7 +66,7 @@ func (proxy proxyService) Invoke(ctx context.Context, command *packet.Command, _
 	if err != nil {
 		return fmt.Errorf("dial %s:%s", network, address)
 	}
-	_, err = protodelim.MarshalTo(stream, util.RetWithError(util.NoError))
+	_, err = protodelim.MarshalTo(stream, silly_ctrl.RetWithError(silly_ctrl.NoError))
 	if err != nil {
 		return fmt.Errorf("write ret error %s", err)
 	}
@@ -75,14 +74,14 @@ func (proxy proxyService) Invoke(ctx context.Context, command *packet.Command, _
 	eg.Go(func() error {
 		<-ctx.Done()
 		_ = conn.Close()
-		stream.CancelRead(quic.StreamErrorCode(util.NoError))
+		stream.CancelRead(quic.StreamErrorCode(silly_ctrl.NoError))
 		return stream.Close()
 	})
 	eg.Go(func() error {
-		return util.CopyWithContext(ctx, stream, conn)
+		return silly_ctrl.CopyWithContext(ctx, stream, conn)
 	})
 	eg.Go(func() error {
-		return util.CopyWithContext(ctx, conn, stream)
+		return silly_ctrl.CopyWithContext(ctx, conn, stream)
 	})
 	return eg.Wait()
 }
@@ -94,11 +93,11 @@ func (execService) Type() packet.CommandType {
 	return packet.CommandType_EXEC
 }
 
-func (execService) Invoke(ctx context.Context, command *packet.Command, _ ctrl.Session, _ ctrl.SessionManager, stream quic.Stream) error {
+func (execService) Invoke(ctx context.Context, command *packet.Command, _ silly_ctrl.Session, _ silly_ctrl.SessionManager, stream quic.Stream) error {
 	if len(command.Args) < 1 {
-		return util.BadParamError
+		return silly_ctrl.BadParamError
 	}
-	if _, err := protodelim.MarshalTo(stream, util.RetWithError(util.NoError)); err != nil {
+	if _, err := protodelim.MarshalTo(stream, silly_ctrl.RetWithError(silly_ctrl.NoError)); err != nil {
 		return err
 	}
 	cmd := exec.CommandContext(ctx, command.Args[0], command.Args[1:]...)
@@ -116,6 +115,6 @@ func (emptyService) Type() packet.CommandType {
 	return packet.CommandType_EMPTY
 }
 
-func (emptyService) Invoke(_ context.Context, _ *packet.Command, _ ctrl.Session, _ ctrl.SessionManager, _ quic.Stream) error {
-	return util.NoError
+func (emptyService) Invoke(_ context.Context, _ *packet.Command, _ silly_ctrl.Session, _ silly_ctrl.SessionManager, _ quic.Stream) error {
+	return silly_ctrl.NoError
 }

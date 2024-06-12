@@ -1,9 +1,9 @@
-package util
+package silly_ctrl
 
 import (
 	"context"
 	"errors"
-	"github.com/irealing/silly-ctrl/internal/util/packet"
+	"github.com/irealing/silly-ctrl/packet"
 	"github.com/quic-go/quic-go"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/encoding/protodelim"
