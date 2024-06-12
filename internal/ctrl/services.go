@@ -1,9 +1,9 @@
-package impl
+package ctrl
 
 import (
 	"context"
 	"fmt"
-	"github.com/irealing/silly-ctrl/internal/ctrl"
+	"github.com/irealing/silly-ctrl"
 	"github.com/irealing/silly-ctrl/internal/util"
 	"github.com/irealing/silly-ctrl/internal/util/packet"
 	"github.com/quic-go/quic-go"
@@ -21,7 +21,7 @@ func (forward forwardService) Type() packet.CommandType {
 	return packet.CommandType_FORWARD
 }
 
-func (forward forwardService) Invoke(ctx context.Context, command *packet.Command, sess ctrl.Session, manager ctrl.SessionManager, stream quic.Stream) error {
+func (forward forwardService) Invoke(ctx context.Context, command *packet.Command, sess silly_ctrl.Session, manager silly_ctrl.SessionManager, stream quic.Stream) error {
 	if len(command.Args) < 2 {
 		return util.BadParamError
 	}
@@ -39,7 +39,7 @@ func (forward forwardService) Invoke(ctx context.Context, command *packet.Comman
 	if sess.ID() == remote {
 		return proxyService{}.Invoke(ctx, newCmd, sess, manager, stream)
 	}
-	return dest.Exec(ctx, newCmd, func(ctx context.Context, _ *packet.Ret, sess ctrl.Session, remoteStream quic.Stream) error {
+	return dest.Exec(ctx, newCmd, func(ctx context.Context, _ *packet.Ret, sess silly_ctrl.Session, remoteStream quic.Stream) error {
 		if _, err := protodelim.MarshalTo(stream, util.RetWithError(util.NoError)); err != nil {
 			return err
 		}
@@ -57,7 +57,7 @@ func (proxy proxyService) Type() packet.CommandType {
 	return packet.CommandType_PROXY
 }
 
-func (proxy proxyService) Invoke(ctx context.Context, command *packet.Command, _ ctrl.Session, _ ctrl.SessionManager, stream quic.Stream) error {
+func (proxy proxyService) Invoke(ctx context.Context, command *packet.Command, _ silly_ctrl.Session, _ silly_ctrl.SessionManager, stream quic.Stream) error {
 	if len(command.Args) < 1 {
 		return util.BadParamError
 	}
@@ -94,7 +94,7 @@ func (execService) Type() packet.CommandType {
 	return packet.CommandType_EXEC
 }
 
-func (execService) Invoke(ctx context.Context, command *packet.Command, _ ctrl.Session, _ ctrl.SessionManager, stream quic.Stream) error {
+func (execService) Invoke(ctx context.Context, command *packet.Command, _ silly_ctrl.Session, _ silly_ctrl.SessionManager, stream quic.Stream) error {
 	if len(command.Args) < 1 {
 		return util.BadParamError
 	}
@@ -116,6 +116,6 @@ func (emptyService) Type() packet.CommandType {
 	return packet.CommandType_EMPTY
 }
 
-func (emptyService) Invoke(_ context.Context, _ *packet.Command, _ ctrl.Session, _ ctrl.SessionManager, _ quic.Stream) error {
+func (emptyService) Invoke(_ context.Context, _ *packet.Command, _ silly_ctrl.Session, _ silly_ctrl.SessionManager, _ quic.Stream) error {
 	return util.NoError
 }

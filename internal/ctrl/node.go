@@ -1,9 +1,9 @@
-package impl
+package ctrl
 
 import (
 	"context"
 	"crypto/tls"
-	"github.com/irealing/silly-ctrl/internal/ctrl"
+	"github.com/irealing/silly-ctrl"
 	"github.com/irealing/silly-ctrl/internal/util"
 	"github.com/irealing/silly-ctrl/internal/util/packet"
 	"github.com/quic-go/quic-go"
@@ -17,16 +17,16 @@ import (
 type ctrlNode struct {
 	logger         *slog.Logger
 	tr             *quic.Transport
-	manager        ctrl.SessionManager
+	manager        silly_ctrl.SessionManager
 	valid          util.Validator
-	serviceMapping ctrl.ServiceMapping
+	serviceMapping silly_ctrl.ServiceMapping
 	quicConfig     quic.Config
-	cfg            *ctrl.Config
+	cfg            *silly_ctrl.Config
 }
 
-func CreateNode(logger *slog.Logger, cfg *ctrl.Config, valid util.Validator) (ctrl.Node, error) {
+func CreateNode(logger *slog.Logger, cfg *silly_ctrl.Config, valid util.Validator) (silly_ctrl.Node, error) {
 	if cfg == nil {
-		cfg = ctrl.DefaultConfig()
+		cfg = silly_ctrl.DefaultConfig()
 	}
 	udpAddr, err := net.ResolveUDPAddr("udp", cfg.LocalAddress)
 	if err != nil {
@@ -201,6 +201,6 @@ func (server *ctrlNode) Connect(ctx context.Context, addr string, app *util.App,
 	}
 	return sess.run(ctx)
 }
-func (server *ctrlNode) Manager() ctrl.SessionManager {
+func (server *ctrlNode) Manager() silly_ctrl.SessionManager {
 	return server.manager
 }

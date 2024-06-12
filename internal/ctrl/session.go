@@ -1,9 +1,9 @@
-package impl
+package ctrl
 
 import (
 	"context"
 	"fmt"
-	"github.com/irealing/silly-ctrl/internal/ctrl"
+	"github.com/irealing/silly-ctrl"
 	"github.com/irealing/silly-ctrl/internal/util"
 	"github.com/irealing/silly-ctrl/internal/util/packet"
 	"github.com/quic-go/quic-go"
@@ -21,9 +21,9 @@ type session struct {
 	conn          quic.Connection
 	heartbeat     packet.Heartbeat
 	isRemote      bool
-	handleMapping ctrl.ServiceMapping
-	manager       ctrl.SessionManager
-	cfg           *ctrl.Config
+	handleMapping silly_ctrl.ServiceMapping
+	manager       silly_ctrl.SessionManager
+	cfg           *silly_ctrl.Config
 }
 
 func (sess *session) IsRemote() bool {
@@ -169,7 +169,7 @@ func (sess *session) handleCommand(ctx context.Context, cmd *packet.Command, str
 	err = sess.handleMapping.Invoke(ctx, cmd, sess, sess.manager, stream)
 	return err
 }
-func (sess *session) Exec(ctx context.Context, cmd *packet.Command, callback ctrl.SessionExecCallback) error {
+func (sess *session) Exec(ctx context.Context, cmd *packet.Command, callback silly_ctrl.SessionExecCallback) error {
 	stream, err := sess.conn.OpenStream()
 	if err != nil {
 		return fmt.Errorf("open stream error session %s err %w", sess.ID(), err)

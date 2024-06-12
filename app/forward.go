@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"github.com/irealing/silly-ctrl"
 	"github.com/irealing/silly-ctrl/app/config"
-	"github.com/irealing/silly-ctrl/internal/ctrl"
 	"github.com/irealing/silly-ctrl/internal/util"
 	"github.com/irealing/silly-ctrl/internal/util/packet"
 	"github.com/quic-go/quic-go"
@@ -14,7 +14,7 @@ import (
 
 type forwardWorker struct {
 	cfg  *config.Config
-	node ctrl.Node
+	node silly_ctrl.Node
 }
 
 func (worker forwardWorker) Run(ctx context.Context) error {
@@ -83,7 +83,7 @@ func (worker forwardWorker) forwardConn(ctx context.Context, remote *config.Forw
 	}
 	err := sess.Exec(ctx,
 		packet.ForwardCommand(remote.App, remote.RemoteAddress),
-		func(ctx context.Context, ret *packet.Ret, sess ctrl.Session, stream quic.Stream) error {
+		func(ctx context.Context, ret *packet.Ret, sess silly_ctrl.Session, stream quic.Stream) error {
 			eg, ctx := errgroup.WithContext(ctx)
 			eg.Go(func() error {
 				defer stream.CancelRead(quic.StreamErrorCode(util.NoError))

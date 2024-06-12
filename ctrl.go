@@ -1,4 +1,4 @@
-package ctrl
+package silly_ctrl
 
 import (
 	"context"

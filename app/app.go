@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/irealing/silly-ctrl"
 	"github.com/irealing/silly-ctrl/app/config"
-	"github.com/irealing/silly-ctrl/internal"
-	"github.com/irealing/silly-ctrl/internal/ctrl/impl"
+	"github.com/irealing/silly-ctrl/internal/ctrl"
 	"github.com/irealing/silly-ctrl/internal/util"
 	"log/slog"
 	"os"
@@ -26,19 +26,19 @@ func main() {
 	startApp(ctx, cfg)
 }
 func startApp(ctx context.Context, cfg *config.Config) {
-	node, err := impl.CreateNode(cfg.Logger(), &cfg.Ctrl, util.NewBasicValidator(cfg.Apps))
+	node, err := ctrl.CreateNode(cfg.Logger(), &cfg.Ctrl, util.NewBasicValidator(cfg.Apps))
 	if err != nil {
 		cfg.Logger().Error("create node failed", "err", err)
 		return
 	}
-	var wc []internal.WorkerCreator
+	var wc []silly_ctrl.WorkerCreator
 	if len(cfg.Apps) > 0 {
-		wc = append(wc, func(ctx context.Context) (internal.Worker, error) {
+		wc = append(wc, func(ctx context.Context) (silly_ctrl.Worker, error) {
 			return makeListenWorker(node, cfg)
 		})
 	}
 	if len(cfg.Remote) > 0 {
-		wc = append(wc, func(ctx context.Context) (internal.Worker, error) {
+		wc = append(wc, func(ctx context.Context) (silly_ctrl.Worker, error) {
 			return &remoteWorker{
 				cfg:  cfg,
 				node: node,
@@ -46,14 +46,14 @@ func startApp(ctx context.Context, cfg *config.Config) {
 		})
 	}
 	if len(cfg.Forward) > 0 {
-		wc = append(wc, func(ctx context.Context) (internal.Worker, error) {
+		wc = append(wc, func(ctx context.Context) (silly_ctrl.Worker, error) {
 			return &forwardWorker{
 				cfg:  cfg,
 				node: node,
 			}, nil
 		})
 	}
-	if err := internal.NewWorker(cfg.Logger(), "app", wc...).Run(ctx); err != nil {
+	if err := silly_ctrl.NewWorker(cfg.Logger(), "app", wc...).Run(ctx); err != nil {
 		cfg.Logger().Error("app exit with error", "err", err)
 	} else {
 		cfg.Logger().Info("app exit")

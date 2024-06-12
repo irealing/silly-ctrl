@@ -1,4 +1,4 @@
-package ctrl
+package silly_ctrl
 
 import (
 	sillyKits "github.com/irealing/silly-kits"
