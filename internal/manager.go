@@ -1,8 +1,7 @@
-package ctrl
+package internal
 
 import (
 	"github.com/irealing/silly-ctrl"
-	"github.com/irealing/silly-ctrl/internal/util"
 	"sync"
 )
 
@@ -20,7 +19,7 @@ func (manager *sessionManager) Put(sess silly_ctrl.Session) error {
 	defer manager.rw.Unlock()
 	_, ok := manager.mapping[sess.ID()]
 	if ok {
-		return util.SessionAlreadyExists
+		return silly_ctrl.SessionAlreadyExists
 	}
 	manager.mapping[sess.ID()] = sess
 	return nil

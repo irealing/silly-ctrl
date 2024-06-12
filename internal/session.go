@@ -1,11 +1,10 @@
-package ctrl
+package internal
 
 import (
 	"context"
 	"fmt"
 	"github.com/irealing/silly-ctrl"
-	"github.com/irealing/silly-ctrl/internal/util"
-	"github.com/irealing/silly-ctrl/internal/util/packet"
+	packet2 "github.com/irealing/silly-ctrl/packet"
 	"github.com/quic-go/quic-go"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/encoding/protodelim"
@@ -16,10 +15,10 @@ import (
 )
 
 type session struct {
-	app           *util.App
+	app           *silly_ctrl.App
 	logger        *slog.Logger
 	conn          quic.Connection
-	heartbeat     packet.Heartbeat
+	heartbeat     packet2.Heartbeat
 	isRemote      bool
 	handleMapping silly_ctrl.ServiceMapping
 	manager       silly_ctrl.SessionManager
@@ -38,11 +37,11 @@ func (sess *session) RemoteAddr() net.Addr {
 	return sess.conn.RemoteAddr()
 }
 
-func (sess *session) App() *util.App {
+func (sess *session) App() *silly_ctrl.App {
 	return sess.app
 }
 
-func (sess *session) Info() *packet.Heartbeat {
+func (sess *session) Info() *packet2.Heartbeat {
 	return &sess.heartbeat
 }
 
@@ -87,7 +86,7 @@ func (sess *session) sendHeartbeat(ctx context.Context) error {
 			sess.logger.Error("set write deadline error", "err", err, "session", sess.ID())
 			return err
 		}
-		beat, err := packet.NewHeartbeat()
+		beat, err := packet2.NewHeartbeat()
 		if err != nil {
 			sess.logger.Error("generate heartbeat message error", "err", err)
 			return err
@@ -111,7 +110,7 @@ func (sess *session) receiveHeartbeat(ctx context.Context) error {
 	}
 	go func() {
 		<-ctx.Done()
-		stream.CancelRead(quic.StreamErrorCode(util.UnknownError))
+		stream.CancelRead(quic.StreamErrorCode(silly_ctrl.UnknownError))
 	}()
 	ticker := time.NewTicker(sess.cfg.HeartbeatInterval)
 	for {
@@ -119,7 +118,7 @@ func (sess *session) receiveHeartbeat(ctx context.Context) error {
 			sess.logger.Error("set read deadline error", "err", err)
 			return err
 		}
-		if err = protodelim.UnmarshalFrom(packet.NewProtoReader(stream), &sess.heartbeat); err != nil {
+		if err = protodelim.UnmarshalFrom(packet2.NewProtoReader(stream), &sess.heartbeat); err != nil {
 			sess.logger.Error("receive heartbeat error", "err", err)
 			return err
 		} else {
@@ -143,8 +142,8 @@ func (sess *session) start(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			cmd := &packet.Command{}
-			if err = protodelim.UnmarshalFrom(packet.NewProtoReader(stream), cmd); err != nil {
+			cmd := &packet2.Command{}
+			if err = protodelim.UnmarshalFrom(packet2.NewProtoReader(stream), cmd); err != nil {
 				return err
 			}
 			wg.Add(1)
@@ -157,7 +156,7 @@ func (sess *session) start(ctx context.Context) error {
 		}
 	}
 }
-func (sess *session) handleCommand(ctx context.Context, cmd *packet.Command, stream quic.Stream) (err error) {
+func (sess *session) handleCommand(ctx context.Context, cmd *packet2.Command, stream quic.Stream) (err error) {
 	defer func() {
 		sess.logger.Debug("handle command over,close stream", "type", cmd.Type, "stream", stream.StreamID())
 		if err := stream.Close(); err != nil {
@@ -169,13 +168,13 @@ func (sess *session) handleCommand(ctx context.Context, cmd *packet.Command, str
 	err = sess.handleMapping.Invoke(ctx, cmd, sess, sess.manager, stream)
 	return err
 }
-func (sess *session) Exec(ctx context.Context, cmd *packet.Command, callback silly_ctrl.SessionExecCallback) error {
+func (sess *session) Exec(ctx context.Context, cmd *packet2.Command, callback silly_ctrl.SessionExecCallback) error {
 	stream, err := sess.conn.OpenStream()
 	if err != nil {
 		return fmt.Errorf("open stream error session %s err %w", sess.ID(), err)
 	}
 	defer func() {
-		stream.CancelRead(quic.StreamErrorCode(util.NoError))
+		stream.CancelRead(quic.StreamErrorCode(silly_ctrl.NoError))
 		sess.logger.Debug("close stream", "stream", stream.StreamID(), "cmd", cmd.Type)
 		err = stream.Close()
 		if err != nil {
@@ -186,12 +185,12 @@ func (sess *session) Exec(ctx context.Context, cmd *packet.Command, callback sil
 	if err != nil {
 		return fmt.Errorf("write command error %w", err)
 	}
-	var ret packet.Ret
-	if err = protodelim.UnmarshalFrom(packet.NewProtoReader(stream), &ret); err != nil {
+	var ret packet2.Ret
+	if err = protodelim.UnmarshalFrom(packet2.NewProtoReader(stream), &ret); err != nil {
 		return fmt.Errorf("read ret error %w", err)
 	}
-	if ret.ErrNo != util.NoError.Code() {
-		return util.ErrorNo(ret.ErrNo)
+	if ret.ErrNo != silly_ctrl.NoError.Code() {
+		return silly_ctrl.ErrorNo(ret.ErrNo)
 	}
 	if callback == nil {
 		return nil

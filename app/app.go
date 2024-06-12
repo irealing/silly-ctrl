@@ -5,8 +5,7 @@ import (
 	"flag"
 	"github.com/irealing/silly-ctrl"
 	"github.com/irealing/silly-ctrl/app/config"
-	"github.com/irealing/silly-ctrl/internal/ctrl"
-	"github.com/irealing/silly-ctrl/internal/util"
+	"github.com/irealing/silly-ctrl/impl"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -26,7 +25,7 @@ func main() {
 	startApp(ctx, cfg)
 }
 func startApp(ctx context.Context, cfg *config.Config) {
-	node, err := ctrl.CreateNode(cfg.Logger(), &cfg.Ctrl, util.NewBasicValidator(cfg.Apps))
+	node, err := impl.CreateNode(cfg.Logger(), &cfg.Ctrl, silly_ctrl.NewBasicValidator(cfg.Apps), impl.DefaultServices())
 	if err != nil {
 		cfg.Logger().Error("create node failed", "err", err)
 		return

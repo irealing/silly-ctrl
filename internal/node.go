@@ -1,11 +1,10 @@
-package ctrl
+package internal
 
 import (
 	"context"
 	"crypto/tls"
 	"github.com/irealing/silly-ctrl"
-	"github.com/irealing/silly-ctrl/internal/util"
-	"github.com/irealing/silly-ctrl/internal/util/packet"
+	"github.com/irealing/silly-ctrl/packet"
 	"github.com/quic-go/quic-go"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"log/slog"
@@ -18,13 +17,13 @@ type ctrlNode struct {
 	logger         *slog.Logger
 	tr             *quic.Transport
 	manager        silly_ctrl.SessionManager
-	valid          util.Validator
+	valid          silly_ctrl.Validator
 	serviceMapping silly_ctrl.ServiceMapping
 	quicConfig     quic.Config
 	cfg            *silly_ctrl.Config
 }
 
-func CreateNode(logger *slog.Logger, cfg *silly_ctrl.Config, valid util.Validator) (silly_ctrl.Node, error) {
+func CreateNode(logger *slog.Logger, cfg *silly_ctrl.Config, valid silly_ctrl.Validator, services silly_ctrl.ServiceMapping) (silly_ctrl.Node, error) {
 	if cfg == nil {
 		cfg = silly_ctrl.DefaultConfig()
 	}
@@ -46,7 +45,7 @@ func CreateNode(logger *slog.Logger, cfg *silly_ctrl.Config, valid util.Validato
 			KeepAlivePeriod: time.Second * cfg.MaxHeartbeatInterval,
 			MaxIdleTimeout:  time.Second * cfg.MaxHeartbeatInterval * 2,
 		},
-		serviceMapping: createServiceMapping(),
+		serviceMapping: services,
 	}, nil
 }
 
@@ -88,7 +87,7 @@ func (server *ctrlNode) start(ctx context.Context, connections <-chan quic.Conne
 			sess, err := server.createSession(ctx, conn)
 			if err != nil {
 				server.logger.Error("create session error ", "remote", conn.RemoteAddr(), "err", err)
-				if err = conn.CloseWithError(quic.ApplicationErrorCode(util.UnknownError.Code()), err.Error()); err != nil {
+				if err = conn.CloseWithError(quic.ApplicationErrorCode(silly_ctrl.UnknownError.Code()), err.Error()); err != nil {
 					server.logger.Error("close connection error", "remote", conn.RemoteAddr(), "err", err)
 				}
 				continue
@@ -117,7 +116,7 @@ func (server *ctrlNode) createSession(ctx context.Context, conn quic.Connection)
 	}
 	server.logger.Info("handshake success", "app", app.AccessKey, "addr", conn.RemoteAddr())
 	if _, ok := server.manager.Get(app.AccessKey); ok {
-		return nil, util.SessionAlreadyExists
+		return nil, silly_ctrl.SessionAlreadyExists
 	}
 	sess := &session{
 		app:           app,
@@ -130,20 +129,20 @@ func (server *ctrlNode) createSession(ctx context.Context, conn quic.Connection)
 	}
 	return sess, server.manager.Put(sess)
 }
-func (server *ctrlNode) handshake(ctx context.Context, conn quic.Connection) (*util.App, *packet.Handshake, error) {
+func (server *ctrlNode) handshake(ctx context.Context, conn quic.Connection) (*silly_ctrl.App, *packet.Handshake, error) {
 	authStream, err := conn.AcceptStream(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 	go func() {
 		<-ctx.Done()
-		authStream.CancelRead(quic.StreamErrorCode(util.NoError))
+		authStream.CancelRead(quic.StreamErrorCode(silly_ctrl.NoError))
 		if err := authStream.Close(); err != nil {
 			server.logger.Error("close auth stream error", "err", err)
 		}
 	}()
 	if err = authStream.SetReadDeadline(time.Now().Add(time.Second * server.cfg.HandshakeTimeout)); err != nil {
-		return nil, nil, util.AuthError
+		return nil, nil, silly_ctrl.AuthError
 	}
 	hs := &packet.Handshake{}
 	if err = protodelim.UnmarshalFrom(packet.NewProtoReader(authStream), hs); err != nil {
@@ -154,8 +153,8 @@ func (server *ctrlNode) handshake(ctx context.Context, conn quic.Connection) (*u
 		return nil, nil, err
 	}
 	_, err = protodelim.MarshalTo(authStream, &packet.Ret{
-		ErrNo: util.NoError.Code(),
-		Msg:   util.NoError.String(),
+		ErrNo: silly_ctrl.NoError.Code(),
+		Msg:   silly_ctrl.NoError.String(),
 	})
 
 	if err != nil {
@@ -163,7 +162,7 @@ func (server *ctrlNode) handshake(ctx context.Context, conn quic.Connection) (*u
 	}
 	return app, hs, err
 }
-func (server *ctrlNode) Connect(ctx context.Context, addr string, app *util.App, config *tls.Config) error {
+func (server *ctrlNode) Connect(ctx context.Context, addr string, app *silly_ctrl.App, config *tls.Config) error {
 	remoteAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return err
@@ -173,13 +172,13 @@ func (server *ctrlNode) Connect(ctx context.Context, addr string, app *util.App,
 		return err
 	}
 	defer func() {
-		_ = conn.CloseWithError(quic.ApplicationErrorCode(util.ApplicationOver), util.ApplicationOver.Error())
+		_ = conn.CloseWithError(quic.ApplicationErrorCode(silly_ctrl.ApplicationOver), silly_ctrl.ApplicationOver.Error())
 	}()
-	err = util.DoQUICRequest[*packet.Handshake, *packet.Ret](
+	err = silly_ctrl.DoQUICRequest[*packet.Handshake, *packet.Ret](
 		ctx, app.Signature(), &packet.Ret{}, conn,
 		func(ctx context.Context, response *packet.Ret, stream quic.Stream) error {
-			if response.ErrNo != util.NoError.Code() {
-				return util.ErrorNo(response.ErrNo)
+			if response.ErrNo != silly_ctrl.NoError.Code() {
+				return silly_ctrl.ErrorNo(response.ErrNo)
 			}
 			return err
 		})

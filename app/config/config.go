@@ -3,7 +3,6 @@ package config
 import (
 	"crypto/tls"
 	"github.com/irealing/silly-ctrl"
-	"github.com/irealing/silly-ctrl/internal/util"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"io"
@@ -40,7 +39,7 @@ func (cfg *LogConf) makeLogger() *slog.Logger {
 }
 
 type Remote struct {
-	App     util.App
+	App     silly_ctrl.App
 	Address string
 }
 type Forward struct {
@@ -67,7 +66,7 @@ func (c TLSConfig) makeTlsConfig() (*tls.Config, error) {
 
 type Config struct {
 	Remote    []Remote
-	Apps      []util.App
+	Apps      []silly_ctrl.App
 	Ctrl      silly_ctrl.Config
 	Log       LogConf
 	TLS       TLSConfig

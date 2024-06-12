@@ -4,8 +4,7 @@ import (
 	"context"
 	"github.com/irealing/silly-ctrl"
 	"github.com/irealing/silly-ctrl/app/config"
-	"github.com/irealing/silly-ctrl/internal/util"
-	"github.com/irealing/silly-ctrl/internal/util/packet"
+	"github.com/irealing/silly-ctrl/packet"
 	"github.com/quic-go/quic-go"
 	"golang.org/x/sync/errgroup"
 	"net"
@@ -86,11 +85,11 @@ func (worker forwardWorker) forwardConn(ctx context.Context, remote *config.Forw
 		func(ctx context.Context, ret *packet.Ret, sess silly_ctrl.Session, stream quic.Stream) error {
 			eg, ctx := errgroup.WithContext(ctx)
 			eg.Go(func() error {
-				defer stream.CancelRead(quic.StreamErrorCode(util.NoError))
-				return util.CopyWithContext(ctx, conn, stream)
+				defer stream.CancelRead(quic.StreamErrorCode(silly_ctrl.NoError))
+				return silly_ctrl.CopyWithContext(ctx, conn, stream)
 			})
 			eg.Go(func() error {
-				return util.CopyWithContext(ctx, stream, conn)
+				return silly_ctrl.CopyWithContext(ctx, stream, conn)
 			})
 			return eg.Wait()
 		},
