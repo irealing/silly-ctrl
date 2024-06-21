@@ -6,7 +6,10 @@ import (
 	"github.com/irealing/silly-ctrl"
 	"github.com/irealing/silly-ctrl/app/config"
 	"github.com/irealing/silly-ctrl/impl"
+	"log"
 	"log/slog"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,6 +28,9 @@ func main() {
 	startApp(ctx, cfg)
 }
 func startApp(ctx context.Context, cfg *config.Config) {
+	go func() {
+		log.Println(http.ListenAndServe("127.0.0.1:6060", nil))
+	}()
 	node, err := impl.CreateNode(cfg.Logger(), &cfg.Ctrl, silly_ctrl.NewBasicValidator(cfg.Apps), impl.DefaultServices())
 	if err != nil {
 		cfg.Logger().Error("create node failed", "err", err)

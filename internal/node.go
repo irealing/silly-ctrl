@@ -130,6 +130,8 @@ func (server *ctrlNode) createSession(ctx context.Context, conn quic.Connection)
 	return sess, server.manager.Put(sess)
 }
 func (server *ctrlNode) handshake(ctx context.Context, conn quic.Connection) (*silly_ctrl.App, *packet.Handshake, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	authStream, err := conn.AcceptStream(ctx)
 	if err != nil {
 		return nil, nil, err
